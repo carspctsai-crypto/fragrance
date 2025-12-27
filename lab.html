@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 關鍵優化 1: 視口設定，禁止縮放，適配瀏海螢幕 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>精油調配實驗室</title>
+
+    <!-- PWA 設定 (讓加入主畫面後像原生 App) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#e11d48">
+
+    <!-- 核心程式庫 (使用穩定的 cdnjs) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* 關鍵優化 2: CSS 調整 */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", sans-serif;
+            -webkit-tap-highlight-color: transparent; /* 移除點擊時的藍色高亮 */
+            overscroll-behavior-y: none; /* 防止拉動頁面時整頁彈跳 */
+        }
+        
+        /* 隱藏滾動條但保留功能 */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 安全區域設定 (避開瀏海與底部橫條) */
+        .pt-safe { padding-top: env(safe-area-inset-top); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* 自定義動畫 */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 h-[100dvh] w-full overflow-hidden">
+    
+    <div id="root" class="h-full w-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- SVG Icons ---
+        const IconWrapper = ({ children, size = 24, className = "" }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Leaf = (props) => <IconWrapper {...props}><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 14.26 7.3a7 7 0 1 1-12.26 10.7Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></IconWrapper>;
+        const Sparkles = (props) => <IconWrapper {...props}><path d="m12 3-1.912 5.813a2 2 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M9 3v4"/><path d="M3 5h4"/><path d="M3 9h4"/></IconWrapper>;
+        const Beaker = (props) => <IconWrapper {...props}><path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/></IconWrapper>;
+        const User = (props) => <IconWrapper {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></IconWrapper>;
+        const Heart = (props) => <IconWrapper {...props}><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></IconWrapper>;
+        const Wind = (props) => <IconWrapper {...props}><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></IconWrapper>;
+        const Anchor = (props) => <IconWrapper {...props}><circle cx="12" cy="5" r="3"/><line x1="12" x2="12" y1="22" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></IconWrapper>;
+        const RefreshCw = (props) => <IconWrapper {...props}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></IconWrapper>;
+        const Info = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></IconWrapper>;
+        const Copy = (props) => <IconWrapper {...props}><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></IconWrapper>;
+        const Droplets = (props) => <IconWrapper {...props}><path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.8-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/></IconWrapper>;
+
+        const CheckIcon = () => (
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+        );
+
+        // --- 資料庫 ---
+        const OIL_INVENTORY = [
+            { id: 'bergamot', name: 'Bergamot', zhName: '佛手柑', note: 'top', tags: ['mood', 'digestion', 'skin', 'allergy', 'relax'] },
+            { id: 'lime', name: 'Lime', zhName: '萊姆', note: 'top', tags: ['mood', 'digestion', 'immune', 'uplift'] },
+            { id: 'lemon', name: 'Lemon', zhName: '檸檬', note: 'top', tags: ['slimming', 'mood', 'skin', 'immune', 'uplift', 'scalp'] },
+            { id: 'sweet_orange', name: 'Sweet Orange', zhName: '甜橙', note: 'top', tags: ['mood', 'digestion', 'relax', 'beauty'] },
+            { id: 'grapefruit', name: 'Grapefruit', zhName: '葡萄柚', note: 'top', tags: ['slimming', 'mood', 'water_retention', 'uplift'] },
+            { id: 'petitgrain', name: 'Petitgrain Paraguay', zhName: '苦橙葉', note: 'top', tags: ['relax', 'skin', 'sleep', 'allergy'] },
+            { id: 'spearmint', name: 'Spearmint', zhName: '綠薄荷', note: 'top', tags: ['digestion', 'respiratory', 'cool'] },
+            { id: 'peppermint', name: 'Peppermint', zhName: '胡椒薄荷', note: 'top', tags: ['pain', 'digestion', 'scalp', 'focus', 'cool', 'sports', 'uplift'] },
+            { id: 'citronella', name: 'Citronella', zhName: '香茅', note: 'top', tags: ['pain', 'insect', 'clean', 'sports'] },
+            { id: 'ylang', name: 'Ylang', zhName: '伊蘭', note: 'middle', tags: ['beauty', 'relax', 'mood', 'hair', 'scalp'] },
+            { id: 'geranium', name: 'Geranium', zhName: '天竺葵', note: 'middle', tags: ['beauty', 'hormone', 'relax', 'skin', 'allergy'] },
+            { id: 'neroli', name: 'Neroli', zhName: '橙花', note: 'middle', tags: ['beauty', 'relax', 'sleep', 'skin'] },
+            { id: 'lavender', name: 'Lavender', zhName: '真正薰衣草', note: 'middle', tags: ['relax', 'skin', 'pain', 'allergy', 'sleep', 'scalp'] },
+            { id: 'lavandin', name: 'Lavandin', zhName: '穗花薰衣草', note: 'middle', tags: ['pain', 'respiratory', 'skin', 'sports'] },
+            { id: 'galbanum', name: 'Galbanum', zhName: '白松香', note: 'top', tags: ['skin', 'pain'] }, 
+            { id: 'clove', name: 'Clove', zhName: '丁香', note: 'middle', tags: ['pain', 'warm', 'digest', 'sports'] },
+            { id: 'ginger', name: 'Ginger', zhName: '薑', note: 'middle', tags: ['pain', 'warm', 'digest', 'slimming', 'sports'] },
+            { id: 'cardamom', name: 'Cardamom', zhName: '小荳蔻', note: 'middle', tags: ['digest', 'warm', 'mood', 'uplift'] },
+            { id: 'nutmeg', name: 'Nutmeg', zhName: '肉豆蔻', note: 'middle', tags: ['pain', 'digest', 'warm'] },
+            { id: 'cinnamon', name: 'Cinnamon', zhName: '肉桂', note: 'middle', tags: ['warm', 'pain', 'slimming'] },
+            { id: 'cedarwood', name: 'Cedarwood', zhName: '雪松', note: 'base', tags: ['scalp', 'relax', 'respiratory', 'slimming', 'beauty'] },
+            { id: 'patchouli', name: 'Patchouli', zhName: '廣藿香', note: 'base', tags: ['skin', 'slimming', 'allergy', 'relax', 'sports'] },
+            { id: 'myrrh', name: 'Myrrh', zhName: '沒藥', note: 'base', tags: ['skin', 'wound', 'relax', 'beauty'] },
+            { id: 'frankincense', name: 'Frankincense', zhName: '乳香', note: 'base', tags: ['beauty', 'relax', 'immune', 'respiratory', 'allergy', 'uplift'] },
+        ];
+
+        // 功效邏輯
+        const EFFECT_LOGIC = {
+            slimming: {
+                label: '減肥瘦身',
+                candidates: {
+                    top: [{ id: 'grapefruit', reason: '促進循環，代謝水分' }, { id: 'lemon', reason: '淨化排毒' }],
+                    middle: [{ id: 'ginger', reason: '溫暖身體，促進代謝' }, { id: 'cinnamon', reason: '產熱效應，燃燒堆積' }],
+                    base: [{ id: 'patchouli', reason: '緊實肌膚，抑制食慾' }, { id: 'cedarwood', reason: '促進淋巴流動' }]
+                }
+            },
+            beauty: {
+                label: '美容護膚',
+                candidates: {
+                    top: [{ id: 'bergamot', reason: '平衡油脂分泌' }, { id: 'sweet_orange', reason: '保濕與提亮膚色' }],
+                    middle: [{ id: 'geranium', reason: '平衡皮脂，恢復彈性' }, { id: 'neroli', reason: '促進細胞再生，美白' }, { id: 'ylang', reason: '平衡油脂' }],
+                    base: [{ id: 'frankincense', reason: '撫平細紋，抗老化' }, { id: 'myrrh', reason: '修復乾燥龜裂' }]
+                }
+            },
+            sports: {
+                label: '運動舒緩',
+                candidates: {
+                    top: [{ id: 'peppermint', reason: '清涼鎮痛，放鬆肌肉' }, { id: 'citronella', reason: '舒緩疲勞' }],
+                    middle: [{ id: 'lavandin', reason: '緩解肌肉痠痛' }, { id: 'ginger', reason: '溫熱活血，消除堆積乳酸' }, { id: 'clove', reason: '強效止痛' }],
+                    base: [{ id: 'patchouli', reason: '消炎鎮定' }]
+                }
+            },
+            allergy: {
+                label: '皮膚過敏',
+                candidates: {
+                    top: [{ id: 'bergamot', reason: '安撫鎮定(需注意光敏)' }, { id: 'petitgrain', reason: '溫和安撫' }],
+                    middle: [{ id: 'lavender', reason: '鎮定紅腫癢，抗發炎首選' }, { id: 'geranium', reason: '平衡皮膚狀態' }],
+                    base: [{ id: 'patchouli', reason: '癒合傷口，抗發炎' }, { id: 'frankincense', reason: '修復受損肌膚' }]
+                }
+            },
+            digestion: {
+                label: '腸胃舒緩',
+                candidates: {
+                    top: [{ id: 'peppermint', reason: '緩解脹氣與噁心感' }, { id: 'sweet_orange', reason: '幫助消化，開胃' }, { id: 'spearmint', reason: '溫和助消化' }],
+                    middle: [{ id: 'cardamom', reason: '溫暖腸胃，緩解痙攣' }, { id: 'ginger', reason: '驅寒暖胃' }, { id: 'nutmeg', reason: '助消化' }],
+                    base: [] 
+                }
+            },
+            scalp: {
+                label: '頭皮護養',
+                candidates: {
+                    top: [{ id: 'peppermint', reason: '止癢，促進頭皮循環' }, { id: 'lemon', reason: '清潔去油' }],
+                    middle: [{ id: 'ylang', reason: '滋養髮絲，刺激生長' }, { id: 'lavender', reason: '平衡皮脂，鎮定敏感' }],
+                    base: [{ id: 'cedarwood', reason: '強健髮根，減少落髮' }]
+                }
+            },
+            relax: {
+                label: '心情放鬆',
+                candidates: {
+                    top: [{ id: 'sweet_orange', reason: '帶來陽光般的溫暖快樂' }, { id: 'petitgrain', reason: '安撫神經系統' }, { id: 'bergamot', reason: '釋放焦慮' }],
+                    middle: [{ id: 'lavender', reason: '經典放鬆，助眠' }, { id: 'neroli', reason: '深度放鬆，抗憂鬱' }, { id: 'ylang', reason: '抗焦慮' }],
+                    base: [{ id: 'frankincense', reason: '深層呼吸，平靜心靈' }, { id: 'cedarwood', reason: '穩定情緒' }]
+                }
+            },
+            uplift: {
+                label: '提振心情',
+                candidates: {
+                    top: [{ id: 'lime', reason: '清新提神，掃除陰霾' }, { id: 'lemon', reason: '提升專注力' }, { id: 'grapefruit', reason: '正面積極' }],
+                    middle: [{ id: 'peppermint', reason: '醒腦開竅' }, { id: 'cardamom', reason: '提振精神' }],
+                    base: [{ id: 'frankincense', reason: '給予心靈支持' }]
+                }
+            }
+        };
+
+        const VOLUMES = [30, 20, 10];
+
+        const PARTS = [
+            { id: 'face', label: '臉部用', percentage: 0.01, desc: '1% 濃度' },
+            { id: 'body', label: '身體用', percentage: 0.03, desc: '3% 濃度' },
+            { id: 'local', label: '局部加強', percentage: 0.05, desc: '5% 濃度' },
+        ];
+
+        function NoteIcon({ note }) {
+            let icon = <Wind size={18} />;
+            let color = "text-yellow-500";
+            let label = "前調";
+            let bg = "bg-yellow-100";
+
+            if (note === 'middle') {
+                icon = <Heart size={18} />;
+                color = "text-pink-500";
+                label = "中調";
+                bg = "bg-pink-100";
+            } else if (note === 'base') {
+                icon = <Anchor size={18} />;
+                color = "text-rose-700";
+                label = "後調";
+                bg = "bg-rose-100";
+            }
+
+            return (
+                <div className={`flex flex-col items-center gap-1 w-12 shrink-0`}>
+                <div className={`w-10 h-10 rounded-full ${bg} ${color} flex items-center justify-center`}>
+                    {icon}
+                </div>
+                <span className={`text-[10px] font-bold ${color} uppercase`}>{label}</span>
+                </div>
+            );
+        }
+
+        // --- 主應用程式 ---
+        function EssentialOilBlender() {
+            const [volume, setVolume] = useState(30);
+            const [part, setPart] = useState(PARTS[1]); 
+            const [effect, setEffect] = useState(null);
+            const [recipe, setRecipe] = useState(null);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const scrollRef = useRef(null);
+
+            const generateRecipe = () => {
+                if (!effect) return;
+                setIsGenerating(true);
+
+                // 滾動到結果區 (改善手機體驗)
+                if (scrollRef.current) {
+                    setTimeout(() => {
+                        scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                }
+
+                setTimeout(() => {
+                    const totalDrops = Math.round(volume * 20 * part.percentage);
+                    const logic = EFFECT_LOGIC[effect];
+                    const { top, middle, base } = logic.candidates;
+
+                    // Helper to pick random unique items
+                    const pick = (arr, count = 1) => {
+                        if (!arr || arr.length === 0) return [];
+                        const shuffled = [...arr].sort(() => 0.5 - Math.random());
+                        return shuffled.slice(0, count);
+                    };
+
+                    const pickedTop = pick(top, 1);
+                    const pickedMiddle = pick(middle, 2);
+                    const pickedBase = pick(base, 1);
+
+                    let blendComposition = [...pickedTop, ...pickedMiddle, ...pickedBase];
+
+                    // Fallback logic if selection is empty but totalDrops > 0
+                    if (totalDrops > 0 && blendComposition.length === 0) {
+                        const fallbackOil = OIL_INVENTORY.find(o => o.tags.includes(effect)) || OIL_INVENTORY[0];
+                        blendComposition.push({
+                            id: fallbackOil.id,
+                            reason: '基礎輔助'
+                        });
+                    }
+
+                    // Map to full oil objects
+                    let selectedOils = blendComposition.map((item) => {
+                        const oilData = OIL_INVENTORY.find(o => o.id === item.id);
+                        return {
+                            ...oilData,
+                            drops: 0,
+                            reason: item.reason
+                        };
+                    }).filter(o => o && o.id);
+
+                    if (selectedOils.length > 0) {
+                        let remainingDrops = totalDrops;
+                        const baseDrops = Math.floor(totalDrops / selectedOils.length);
+
+                        selectedOils.forEach(o => {
+                            o.drops = baseDrops;
+                            remainingDrops -= baseDrops;
+                        });
+
+                        // Distribute remainder
+                        for (let i = 0; i < selectedOils.length && remainingDrops > 0; i++) {
+                            selectedOils[i].drops += 1;
+                            remainingDrops -= 1;
+                        }
+
+                        // Safety check
+                        if (remainingDrops > 0 && selectedOils.length > 0) {
+                            selectedOils[0].drops += remainingDrops;
+                        }
+
+                        selectedOils = selectedOils.filter(o => o.drops > 0);
+                    }
+                    
+                    const noteOrder = { 'top': 1, 'middle': 2, 'base': 3 };
+                    selectedOils.sort((a, b) => noteOrder[a.note] - noteOrder[b.note]);
+
+                    setRecipe({
+                        totalDrops,
+                        oils: selectedOils,
+                        effectName: logic.label
+                    });
+                    
+                    setIsGenerating(false);
+                }, 600);
+            };
+
+            useEffect(() => {
+                if (volume && part && effect) {
+                    generateRecipe();
+                }
+            }, [volume, part, effect]);
+
+            const handleCopy = () => {
+                if (!recipe) return;
+                const text = `【${recipe.effectName}配方】\n總量：${volume}ml (${part.label})\n精油總滴數：${recipe.totalDrops}滴\n\n` + 
+                recipe.oils.map(o => `- ${o.zhName} (${o.name}): ${o.drops}滴\n  作用：${o.reason}`).join('\n');
+                
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed'; // 防止手機上頁面跳動
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('配方已複製到剪貼簿！');
+                } catch (err) {
+                    console.error('複製失敗', err);
+                    alert('複製失敗，請手動複製。');
+                }
+                document.body.removeChild(textarea);
+            };
+
+            return (
+                <div className="flex justify-center h-full w-full bg-pink-50">
+                    <div className="w-full md:max-w-md bg-white shadow-none md:shadow-2xl flex flex-col h-full md:h-auto md:min-h-0 md:my-8 md:rounded-3xl overflow-hidden relative">
+                        
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-rose-500 to-pink-600 text-white p-6 pt-safe pb-6 md:rounded-b-3xl shadow-lg relative shrink-0 z-10">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 pt-safe">
+                                <Leaf size={120} />
+                            </div>
+                            <h1 className="text-2xl font-bold flex items-center gap-2 mb-1 mt-2">
+                                <Sparkles size={24} />
+                                精油調配實驗室
+                            </h1>
+                            <p className="text-pink-100 text-sm opacity-90">量身打造您的芳療配方</p>
+                        </div>
+
+                        {/* Main Scrollable Content */}
+                        <main className="flex-1 overflow-y-auto p-4 space-y-6 pb-safe scrollbar-hide">
+                            
+                            {/* 1. 容量選擇 */}
+                            <section>
+                                <h2 className="text-lg font-bold text-rose-800 mb-3 flex items-center gap-2">
+                                <Beaker size={20} />
+                                1. 選擇容量
+                                </h2>
+                                <div className="flex gap-3">
+                                {VOLUMES.map(v => (
+                                    <button
+                                    key={v}
+                                    onClick={() => setVolume(v)}
+                                    className={`flex-1 py-3 rounded-xl border-2 transition-all duration-200 font-medium active:scale-95 ${
+                                        volume === v 
+                                        ? 'border-pink-500 bg-pink-100 text-pink-700 shadow-sm' 
+                                        : 'border-stone-200 text-stone-400 hover:border-pink-300'
+                                    }`}
+                                    >
+                                    {v}ml
+                                    </button>
+                                ))}
+                                </div>
+                            </section>
+
+                            {/* 2. 部位與濃度 */}
+                            <section>
+                                <h2 className="text-lg font-bold text-rose-800 mb-3 flex items-center gap-2">
+                                <User size={20} />
+                                2. 塗抹部位
+                                </h2>
+                                <div className="grid grid-cols-3 gap-3">
+                                {PARTS.map(p => (
+                                    <button
+                                    key={p.id}
+                                    onClick={() => setPart(p)}
+                                    className={`flex flex-col items-center justify-center py-3 px-1 rounded-xl border-2 transition-all duration-200 active:scale-95 ${
+                                        part.id === p.id 
+                                        ? 'border-pink-500 bg-pink-100 text-pink-700 shadow-sm' 
+                                        : 'border-stone-200 text-stone-400 hover:border-pink-300'
+                                    }`}
+                                    >
+                                    <span className="font-bold text-sm">{p.label}</span>
+                                    <span className="text-xs opacity-70">{p.desc}</span>
+                                    </button>
+                                ))}
+                                </div>
+                            </section>
+
+                            {/* 3. 功效選擇 */}
+                            <section>
+                                <h2 className="text-lg font-bold text-rose-800 mb-3 flex items-center gap-2">
+                                <Heart size={20} />
+                                3. 想要的效果
+                                </h2>
+                                <div className="grid grid-cols-2 gap-2">
+                                {Object.entries(EFFECT_LOGIC).map(([key, val]) => (
+                                    <button
+                                    key={key}
+                                    onClick={() => setEffect(key)}
+                                    className={`py-3 px-4 rounded-xl text-left transition-all duration-200 flex items-center justify-between active:scale-98 ${
+                                        effect === key
+                                        ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md transform scale-[1.02]' 
+                                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                                    }`}
+                                    >
+                                    <span className="font-medium">{val.label}</span>
+                                    {effect === key && <CheckIcon />}
+                                    </button>
+                                ))}
+                                </div>
+                            </section>
+
+                            {/* 配方結果展示區 */}
+                            <div ref={scrollRef} className="pt-2 pb-12">
+                                {isGenerating ? (
+                                <div className="flex flex-col items-center justify-center py-10 text-pink-500 animate-pulse">
+                                    <div className="animate-spin mb-2"><RefreshCw size={32} /></div>
+                                    <p>正在調配專屬複方...</p>
+                                </div>
+                                ) : recipe ? (
+                                <div className="animate-fade-in-up">
+                                    <div className="relative bg-white border border-pink-200 rounded-2xl shadow-lg overflow-hidden mb-safe">
+                                    {/* Card Header */}
+                                    <div className="bg-gradient-to-r from-rose-500 to-pink-600 p-4 text-white flex justify-between items-center">
+                                        <div>
+                                        <h3 className="font-bold text-lg flex items-center gap-2">
+                                            {recipe.effectName}專屬配方
+                                        </h3>
+                                        <p className="text-xs text-white opacity-90">
+                                            總量 {volume}ml / 濃度 {part.desc}
+                                        </p>
+                                        </div>
+                                        <div className="text-center bg-white/20 rounded-lg p-2 backdrop-blur-sm">
+                                            <span className="block text-xs uppercase tracking-wider">總滴數</span>
+                                            <span className="block text-2xl font-bold leading-none">{recipe.totalDrops}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Oil List */}
+                                    <div className="p-5 space-y-4">
+                                        {recipe.oils.map((oil, idx) => (
+                                        <div key={idx} className="flex items-start gap-3 pb-4 border-b border-stone-100 last:border-0 last:pb-0">
+                                            <NoteIcon note={oil.note} />
+                                            <div className="flex-1">
+                                            <div className="flex justify-between items-baseline mb-1">
+                                                <span className="font-bold text-stone-800 text-lg">{oil.zhName}</span>
+                                                <span className="font-mono font-bold text-pink-600 text-lg">{oil.drops}<span className="text-xs text-stone-400 ml-1">滴</span></span>
+                                            </div>
+                                            <div className="text-xs text-stone-400 mb-1 uppercase tracking-wide">{oil.name}</div>
+                                            <p className="text-sm text-stone-600 bg-stone-50 p-2 rounded-lg border border-stone-100">
+                                                {oil.reason}
+                                            </p>
+                                            </div>
+                                        </div>
+                                        ))}
+                                    </div>
+                                    
+                                    {/* Actions */}
+                                    <div className="bg-stone-50 p-4 flex gap-2">
+                                        <button 
+                                            onClick={handleCopy}
+                                            className="flex-1 flex items-center justify-center gap-2 bg-white border border-stone-300 text-stone-600 py-3 rounded-xl hover:bg-stone-50 active:scale-95 transition-transform text-sm font-medium touch-manipulation"
+                                        >
+                                            <Copy size={16} /> 複製文字
+                                        </button>
+                                        <button 
+                                            onClick={generateRecipe}
+                                            className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white py-3 rounded-xl hover:from-rose-600 hover:to-pink-600 active:scale-95 transition-transform text-sm font-medium shadow-sm touch-manipulation"
+                                        >
+                                            <RefreshCw size={16} /> 重新搭配
+                                        </button>
+                                    </div>
+                                    </div>
+                                    
+                                    {/* Safety Tips */}
+                                    <div className="mt-4 p-4 bg-red-100 rounded-xl border border-red-200 text-red-800 text-sm flex gap-3 mb-8">
+                                        <div className="shrink-0 mt-0.5"><Info size={18} /></div>
+                                        <div>
+                                            <p className="font-bold mb-1">使用小叮嚀：</p>
+                                            <ul className="list-disc pl-4 space-y-1 opacity-90 text-xs">
+                                                <li>柑橘類精油具有光敏性，12小時內避光。</li>
+                                                <li>孕婦、嬰幼兒及特殊疾病患者請先諮詢。</li>
+                                                <li>此配方僅供參考，請先進行皮膚測試。</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                ) : (
+                                <div className="text-center py-10 text-stone-400 bg-stone-50 rounded-xl border-2 border-dashed border-stone-200 mx-2">
+                                    <div className="flex justify-center mb-2 opacity-50"><Droplets size={32} /></div>
+                                    <p>請完成上方選擇以生成配方</p>
+                                </div>
+                                )}
+                            </div>
+
+                        </main>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<EssentialOilBlender />);
+    </script>
+</body>
+</html>
