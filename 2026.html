@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 專屬流年香氛啟動器</title>
+<style>
+  :root {
+    /* 定義柔和的粉橘色系 */
+    --bg-gradient-start: #ffecd2; /* 柔和淺橘 */
+    --bg-gradient-end: #fcb69f;   /* 柔和粉紅 */
+    --card-bg: rgba(255, 255, 255, 0.95);
+    --text-color-primary: #5d4037; /* 深棕色文字，比黑色更柔和 */
+    --text-color-secondary: #8d6e63;
+    --accent-color: #ffab91; /* 亮粉橘色用於按鈕 */
+    --accent-hover: #ff8a65;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    /* 柔和粉橘色漸層背景 */
+    background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-color-primary);
+  }
+
+  .container {
+    width: 90%;
+    max-width: 450px;
+    background-color: var(--card-bg);
+    padding: 30px;
+    border-radius: 25px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    text-align: center;
+    transition: transform 0.3s ease;
+  }
+
+  h1 {
+    color: var(--text-color-primary);
+    font-size: 24px;
+    margin-bottom: 25px;
+    font-weight: 600;
+  }
+
+  .input-group {
+    margin-bottom: 20px;
+    text-align: left;
+  }
+
+  label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-color-secondary);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  input[type="number"] {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ffe0b2;
+    border-radius: 12px;
+    font-size: 16px;
+    box-sizing: border-box; /* 重要：讓padding不會撐破寬度 */
+    transition: border-color 0.3s;
+    color: var(--text-color-primary);
+    background-color: #fffbf7;
+  }
+
+  input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent-color);
+  }
+
+  button {
+    width: 100%;
+    padding: 15px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 4px 6px rgba(255, 171, 145, 0.3);
+  }
+
+  button:hover {
+    background-color: var(--accent-hover);
+  }
+
+  button:active {
+    transform: scale(0.98);
+  }
+
+  /* 結果顯示區域，預設隱藏 */
+  #result-area {
+    display: none; 
+    margin-top: 30px;
+    border-top: 2px dashed #ffe0b2;
+    padding-top: 25px;
+    animation: fadeIn 0.5s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-number {
+    font-size: 18px;
+    color: var(--text-color-secondary);
+    margin-bottom: 10px;
+  }
+
+  .result-number span {
+    font-size: 32px;
+    color: var(--accent-color);
+    font-weight: bold;
+  }
+
+  .perfume-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--text-color-primary);
+    margin-bottom: 10px;
+  }
+
+  .sand-color {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 14px;
+      margin-bottom: 15px;
+      color: #fff;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+
+  .sand-gold { background: linear-gradient(45deg, #ffd700, #e6ac00); color: #5d4037; text-shadow: none;}
+  .sand-pink { background: linear-gradient(45deg, #ffcccb, #ff8fa3); color: #5d4037; text-shadow: none;}
+  .sand-green { background: linear-gradient(45deg, #a8e063, #56ab2f); }
+  .sand-silver { background: linear-gradient(45deg, #e0e0e0, #9e9e9e); color: #5d4037; text-shadow: none;}
+  .sand-orange { background: linear-gradient(45deg, #ffaf7b, #ff7e5f); }
+
+
+  .desc-group {
+    text-align: left;
+    background-color: #fffbf7;
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+  }
+
+  .desc-label {
+    font-weight: bold;
+    color: var(--accent-hover);
+    margin-right: 5px;
+  }
+  
+  .keyword-highlight {
+      color: var(--accent-hover);
+      font-weight: bold;
+  }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🍂 2026 流年香氛啟動器 🍂</h1>
+  
+  <div class="input-group">
+    <label for="birthMonth">請輸入您的出生「月份」</label>
+    <input type="number" id="birthMonth" placeholder="例如：10" min="1" max="12">
+  </div>
+  
+  <div class="input-group">
+    <label for="birthDay">請輸入您的出生「日期」</label>
+    <input type="number" id="birthDay" placeholder="例如：25" min="1" max="31">
+  </div>
+  
+  <button onclick="calculateDestiny()">啟動專屬能量</button>
+  
+  <div id="result-area">
+    <div class="result-number">您的 2026 流年密碼是：<span id="destinyNum"></span></div>
+    <h2 class="perfume-title" id="perfumeTitle"></h2>
+    <div id="sandColor" class="sand-color"></div>
+    
+    <div class="desc-group">
+      <span class="desc-label">對應流年：</span><span id="yearType"></span>
+    </div>
+    <div class="desc-group">
+      <span class="desc-label">香氣：</span><span id="scentDesc"></span>
+    </div>
+    <div class="desc-group">
+      <span class="desc-label">能量：</span><span id="energyDesc"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // 資料庫：儲存不同流年數字對應的內容
+  const destinyData = {
+    "wealth": {
+      title: "【晨曦之光】(Solar Citrus)",
+      sand: "金色流沙",
+      sandClass: "sand-gold",
+      type: "1、5（變動/忙碌期）",
+      scent: "陽光般的柑橘木質調。",
+      energy: "注入耀眼活力，照亮前方道路，象徵<span class='keyword-highlight'>「啟動與財富」</span>。"
+    },
+    "relationship": {
+      title: "【繁花盛宴】(Blooming Garden)",
+      sand: "粉色流沙",
+      sandClass: "sand-pink",
+      type: "2、6（人際/付出期）",
+      scent: "溫柔迷人的玫瑰花果調。",
+      energy: "散發親和魅力，提升好感度，象徵<span class='keyword-highlight'>「人緣與圓融」</span>。"
+    },
+    "stability": {
+      title: "【大地之森】(Grounding Wood)",
+      sand: "綠色流沙",
+      sandClass: "sand-green",
+      type: "4、7（思考/壓力期）",
+      scent: "沉穩安定的森林茶香調。",
+      energy: "像大樹般向下扎根，思緒清晰，象徵<span class='keyword-highlight'>「穩健與靠山」</span>。"
+    },
+    "wisdom": {
+      title: "【水晶之露】(Crystal Rain)",
+      sand: "銀白流沙",
+      sandClass: "sand-silver",
+      type: "8、9（收穫/重整期）",
+      scent: "高山融雪般的空靈草本調。",
+      energy: "淨化磁場，過濾雜訊，象徵<span class='keyword-highlight'>「守護與智慧」</span>。"
+    },
+    "creativity": {
+      title: "【自由微風】(Freedom Breeze)",
+      sand: "橙色流沙",
+      sandClass: "sand-orange",
+      type: "3（創意/玩樂期）",
+      scent: "度假海風般的海洋果香調。",
+      energy: "激發靈感與快樂因子，象徵<span class='keyword-highlight'>「創意與自由」</span>。"
+    }
+  };
+
+  // 將數字映射到對應的資料鍵值
+  function getDataByNumber(num) {
+    switch(num) {
+      case 1: case 5: return destinyData.wealth;
+      case 2: case 6: return destinyData.relationship;
+      case 4: case 7: return destinyData.stability;
+      case 8: case 9: return destinyData.wisdom;
+      case 3: return destinyData.creativity;
+      default: return null; // Should not happen based on logic
+    }
+  }
+
+  // 核心計算功能
+  function calculateDestiny() {
+    const monthInput = document.getElementById('birthMonth');
+    const dayInput = document.getElementById('birthDay');
+    const resultArea = document.getElementById('result-area');
+    
+    const month = parseInt(monthInput.value);
+    const day = parseInt(dayInput.value);
+
+    // 簡易驗證輸入是否有效
+    if (isNaN(month) || isNaN(day) || month < 1 || month > 12 || day < 1 || day > 31) {
+      alert("請輸入有效的月份 (1-12) 和日期 (1-31) 喔！");
+      return;
+    }
+
+    // 1. 計算初步總和：(出生月份 + 出生日期) 再加上 1
+    let total = month + day + 1;
+
+    // 2. 持續相加，直到剩下最後一個「個位數」
+    // 只要數字大於 9，就繼續拆解相加
+    while (total > 9) {
+      let sumStr = total.toString();
+      let newSum = 0;
+      for (let i = 0; i < sumStr.length; i++) {
+        newSum += parseInt(sumStr[i]);
+      }
+      total = newSum;
+    }
+
+    // 取得計算結果的數字 (total 現在是 1-9 之間的個位數)
+    const finalNumber = total;
+    const resultData = getDataByNumber(finalNumber);
+
+    // 更新畫面顯示
+    if (resultData) {
+      document.getElementById('destinyNum').innerText = finalNumber;
+      document.getElementById('perfumeTitle').innerText = resultData.title;
+      
+      const sandEl = document.getElementById('sandColor');
+      sandEl.innerText = resultData.sand;
+      // 移除舊的顏色類別，加入新的
+      sandEl.className = 'sand-color ' + resultData.sandClass;
+
+      document.getElementById('yearType').innerText = resultData.type;
+      document.getElementById('scentDesc').innerText = resultData.scent;
+      document.getElementById('energyDesc').innerHTML = resultData.energy; // 使用 innerHTML 以顯示關鍵字強調效果
+
+      // 顯示結果區域 (帶有淡入動畫)
+      resultArea.style.display = 'block';
+      
+      // 滾動到結果區，優化手機體驗
+      resultArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+</script>
+
+</body>
+</html>
